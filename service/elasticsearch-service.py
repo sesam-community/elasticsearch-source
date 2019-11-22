@@ -80,17 +80,7 @@ if __name__ == '__main__':
 
 
 
-# users - yunus
-# bw api
-# table
 
-# document
-
-# index , endpoint, name of IAM role
-# credentials from suleman.
-# dev env
-
-# Approval from data owner of procurement business.
 
 
 
