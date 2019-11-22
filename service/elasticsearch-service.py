@@ -5,11 +5,27 @@ import json
 import logging
 import paste.translogger
 import requests
-
+import os
 
 app = Flask(__name__)
 
 logger = logging.getLogger("elasticsearch-service")
+index_name = os.environ.get('index')
+if index_name != None:
+    index_name = "/" + index_name 
+else:
+    index_name = ""
+
+scroll_keep_alive = os.environ.get('scroll_keep_alive')
+if scroll_keep_alive == None:
+    # default to 1 minute
+    scroll_keep_alive = "1m"
+logger.info(scroll_keep_alive)
+
+endpoint = os.environ.get('endpoint')
+if endpoint == None:
+    endpoint = "http://localhost:9200"
+logger.info(endpoint)
 
 @app.route('/', methods=['GET'])
 def root():
@@ -19,29 +35,47 @@ def root():
 @app.route('/entities', methods=["GET"])
 def get():
 
-    logger.info("starting")
+    logger.info("get entities")
 
     def generate():
-        # get data
         is_more = True
         is_first = True
         yield "["
-        start_from = 0
-        page_size = 1000
+        page_size = 1
+
+        # do initial scroll query
+        query = {}
+        query["query"] = {}
+        query["query"]["match_all"] = {}
+        query["size"] = page_size
+        headers = {'Content-Type': 'application/json'}
+        r = requests.post(endpoint + index_name + "/_search?scroll=" + scroll_keep_alive, data = json.dumps(query), headers=headers)
+        data = r.json()
+
+        if len(data["hits"]["hits"]) == 0:
+            is_more = False
 
         while is_more:
-            r = requests.get("http://localhost:9200/_search?size=" + str(page_size) + "&from=" + str(start_from))
+            hits = data["hits"]["hits"]
+            for h in hits:
+                e = h["_source"]
+                e["_id"] = h["_id"]
+                if is_first:
+                    is_first = False                        
+                else:
+                    yield ","
+                yield json.dumps(e)
+
+            # get next scroll
+            scroll_request = {}
+            scroll_request["scroll"] = scroll_keep_alive
+            scroll_request["scroll_id"] = data["_scroll_id"]
+            r = requests.post(endpoint + "/_search/scroll", data = json.dumps(scroll_request), headers=headers)
             data = r.json()
-            print(data)
-            if data["took"] == 0:
+           
+            if len(data["hits"]["hits"]) == 0:
                 is_more = False
-            else:
-                start_from = start_from + page_size
-                hits = data["hits"]["hits"]
-                for h in hits:
-                    e = h["_source"]
-                    e["_id"] = h["_id"]
-                    yield json.dumps(e)
+    
         yield "]"
 
     return Response(generate(), mimetype='application/json', )
@@ -77,9 +111,6 @@ if __name__ == '__main__':
     # Start the CherryPy WSGI web server
     cherrypy.engine.start()
     cherrypy.engine.block()
-
-
-
 
 
 
