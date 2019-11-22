@@ -1,4 +1,4 @@
-Flask==0.12.4
+Flask>=1.0.0
 CherryPy==10.2.1
 Paste==2.0.2
 Requests==2.22.0
