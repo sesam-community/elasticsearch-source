@@ -69,8 +69,9 @@ def get():
         query["query"]["match_all"] = {}
         query["size"] = page_size
         headers = {'Content-Type': 'application/json'}
-        r = requests.post(endpoint + index_name + "/_search?scroll=" + scroll_keep_alive, data = json.dumps(query), headers=headers)
-        data = r.json()
+        #r = requests.post(endpoint + index_name + "/_search?scroll=" + scroll_keep_alive, data = json.dumps(query), headers=headers)
+        #data = r.json()
+        data = executeSignedPost(endpoint + index_name + "/_search?scroll=" + scroll_keep_alive, query)
 
         if len(data["hits"]["hits"]) == 0:
             is_more = False
@@ -90,8 +91,9 @@ def get():
             scroll_request = {}
             scroll_request["scroll"] = scroll_keep_alive
             scroll_request["scroll_id"] = data["_scroll_id"]
-            r = requests.post(endpoint + "/_search/scroll", data = json.dumps(scroll_request), headers=headers)
-            data = r.json()
+            # r = requests.post(endpoint + "/_search/scroll", data = json.dumps(scroll_request), headers=headers)
+            # data = r.json()
+            data = executeSignedPost(endpoint + index_name + "/_search?scroll=" + scroll_keep_alive, query)
            
             if len(data["hits"]["hits"]) == 0:
                 is_more = False
