@@ -6,7 +6,28 @@ import logging
 import paste.translogger
 import requests
 import os
+import boto3
+from botocore.credentials import InstanceMetadataProvider, InstanceMetadataFetcher
+from requests_aws4auth import AWS4Auth
 
+provider = InstanceMetadataProvider(iam_role_fetcher=InstanceMetadataFetcher(timeout=1000, num_attempts=2))
+credentials = provider.load()
+
+access_key = credentials.access_key
+secret_key = credentials.secret_key
+print("K " + access_key + " : S " + secret_key)
+
+region = os.environ.get('region')
+if region == "":
+    region = "eu-central-1"
+
+def executeSignedPost(url, body):
+    service = 'es'
+    awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, region, service, session_token=credentials.token)
+    r = requests.post(url, auth=awsauth, json=body)
+    result = r.json()
+    return result
+    
 app = Flask(__name__)
 
 logger = logging.getLogger("elasticsearch-service")
@@ -30,7 +51,6 @@ logger.info(endpoint)
 @app.route('/', methods=['GET'])
 def root():
     return Response(status=200, response="{ \"status\" : \"OK\" }")
-
 
 @app.route('/entities', methods=["GET"])
 def get():
