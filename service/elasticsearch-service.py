@@ -28,7 +28,7 @@ if region == None:
 
 def executeSignedPost(url, body):
     service = 'es'
-    awsauth = AWS4Auth(access_key, secret_key, region, service, session_token=credentials.token)
+    awsauth = AWS4Auth(access_key, secret_key, region, service)
     r = requests.post(url, auth=awsauth, json=body)
     result = r.json()
     return result
