@@ -10,20 +10,25 @@ import boto3
 from botocore.credentials import InstanceMetadataProvider, InstanceMetadataFetcher
 from requests_aws4auth import AWS4Auth
 
-provider = InstanceMetadataProvider(iam_role_fetcher=InstanceMetadataFetcher(timeout=1000, num_attempts=2))
-credentials = provider.load()
+secret_key = os.environ.get("SECRET_KEY")
+access_key = os.environ.get("ACCESS_KEY")
 
-access_key = credentials.access_key
-secret_key = credentials.secret_key
-print("K " + access_key + " : S " + secret_key)
+if secret_key == None:
+    logger = logging.getLogger("elasticsearch-service")
+    logger.info("No params so attempt get config from machine")
+    provider = InstanceMetadataProvider(iam_role_fetcher=InstanceMetadataFetcher(timeout=1000, num_attempts=2))
+    credentials = provider.load()
 
-region = os.environ.get('region')
-if region == "":
+    access_key = credentials.access_key
+    secret_key = credentials.secret_key
+
+region = os.environ.get('REGION')
+if region == None:
     region = "eu-central-1"
 
 def executeSignedPost(url, body):
     service = 'es'
-    awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, region, service, session_token=credentials.token)
+    awsauth = AWS4Auth(access_key, secret_key, region, service, session_token=credentials.token)
     r = requests.post(url, auth=awsauth, json=body)
     result = r.json()
     return result
@@ -31,19 +36,19 @@ def executeSignedPost(url, body):
 app = Flask(__name__)
 
 logger = logging.getLogger("elasticsearch-service")
-index_name = os.environ.get('index')
+index_name = os.environ.get('INDEX')
 if index_name != None:
     index_name = "/" + index_name 
 else:
     index_name = ""
 
-scroll_keep_alive = os.environ.get('scroll_keep_alive')
+scroll_keep_alive = os.environ.get('SCROLL_KEEP_ALIVE')
 if scroll_keep_alive == None:
     # default to 1 minute
     scroll_keep_alive = "1m"
 logger.info(scroll_keep_alive)
 
-endpoint = os.environ.get('endpoint')
+endpoint = os.environ.get('ES_ENDPOINT')
 if endpoint == None:
     endpoint = "http://localhost:9200"
 logger.info(endpoint)
@@ -68,9 +73,6 @@ def get():
         query["query"] = {}
         query["query"]["match_all"] = {}
         query["size"] = page_size
-        headers = {'Content-Type': 'application/json'}
-        #r = requests.post(endpoint + index_name + "/_search?scroll=" + scroll_keep_alive, data = json.dumps(query), headers=headers)
-        #data = r.json()
         data = executeSignedPost(endpoint + index_name + "/_search?scroll=" + scroll_keep_alive, query)
 
         if len(data["hits"]["hits"]) == 0:
@@ -91,9 +93,7 @@ def get():
             scroll_request = {}
             scroll_request["scroll"] = scroll_keep_alive
             scroll_request["scroll_id"] = data["_scroll_id"]
-            # r = requests.post(endpoint + "/_search/scroll", data = json.dumps(scroll_request), headers=headers)
-            # data = r.json()
-            data = executeSignedPost(endpoint + index_name + "/_search?scroll=" + scroll_keep_alive, query)
+            data = executeSignedPost(endpoint + "/_search/scroll", scroll_request)
            
             if len(data["hits"]["hits"]) == 0:
                 is_more = False
@@ -133,6 +133,13 @@ if __name__ == '__main__':
     # Start the CherryPy WSGI web server
     cherrypy.engine.start()
     cherrypy.engine.block()
+
+
+
+
+
+
+
 
 
 
