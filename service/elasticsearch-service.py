@@ -66,7 +66,7 @@ def get():
         is_more = True
         is_first = True
         yield "["
-        page_size = 1
+        page_size = 10000
 
         # do initial scroll query
         query = {}
