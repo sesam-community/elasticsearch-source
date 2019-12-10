@@ -97,7 +97,8 @@ def get():
            
             if len(data["hits"]["hits"]) == 0:
                 is_more = False
-    
+
+        logger.info("get entities completed")
         yield "]"
 
     return Response(generate(), mimetype='application/json', )
